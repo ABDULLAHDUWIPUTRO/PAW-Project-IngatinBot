@@ -13,4 +13,13 @@ function formatTanggal(tanggal) {
   });
 }
 
-module.exports = { formatTimestamp, formatTanggal };
+// Tanggal dan jam saat ini dalam WIB, format: { tanggal: '2026-11-01', jam: '14:30' }
+function sekarangWIB() {
+  const now = new Date();
+  return {
+    tanggal: now.toLocaleDateString('en-CA', { timeZone: timezone }),
+    jam: now.toLocaleTimeString('en-GB', { timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+module.exports = { formatTimestamp, formatTanggal, sekarangWIB };
