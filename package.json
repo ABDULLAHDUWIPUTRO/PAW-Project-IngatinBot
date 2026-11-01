@@ -1,0 +1,24 @@
+{
+  "name": "paw-project-ingatinbot",
+  "version": "1.0.0",
+  "description": "IngatinBot - Web pengingat aktivitas dengan notifikasi Telegram (PAW Week 7)",
+  "main": "app.js",
+  "scripts": {
+      "start": "node app.js",
+      "dev": "node --watch app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ABDULLAHDUWIPUTRO/PAW-Project-IngatinBot.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ABDULLAHDUWIPUTRO/PAW-Project-IngatinBot/issues"
+  },
+  "homepage": "https://github.com/ABDULLAHDUWIPUTRO/PAW-Project-IngatinBot#readme",
+  "dependencies": {
+    "ejs": "^7.0.2",
+    "express": "^5.3.0"
+  }
+}
