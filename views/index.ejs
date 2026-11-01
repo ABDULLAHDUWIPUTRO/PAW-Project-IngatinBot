@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= appName %> - Pengingat Aktivitas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <header class="bg-indigo-600 text-white">
+    <div class="max-w-5xl mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold"><%= appName %></h1>
+      <p class="mt-1 text-indigo-100">Catat aktivitas di web, pengingat dikirim lewat notifikasi Telegram.</p>
+      <span id="status-badge" class="inline-block mt-4 text-xs px-3 py-1 rounded-full bg-indigo-500">Memeriksa status server...</span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-10">
+
+    <!-- Produk dari GET /api/produk -->
+    <section>
+      <h2 class="text-xl font-semibold mb-4">Paket IngatinBot</h2>
+      <div id="produk-list" class="grid gap-4 sm:grid-cols-3">
+        <p class="text-slate-500">Memuat produk...</p>
+      </div>
+    </section>
+
+    <!-- Aktivitas dari GET/POST /api/aktivitas -->
+    <section class="grid gap-6 md:grid-cols-2">
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-xl font-semibold mb-4">Tambah Aktivitas</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1" for="judul">Judul</label>
+            <input id="judul" type="text" placeholder="Contoh: Kumpul tugas PAW" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium mb-1" for="tanggal">Tanggal</label>
+              <input id="tanggal" type="date" class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="jam">Jam</label>
+              <input id="jam" type="time" class="w-full border rounded-lg px-3 py-2">
+            </div>
+          </div>
+          <p id="form-pesan" class="text-sm text-red-600 hidden"></p>
+          <button id="btn-simpan" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg py-2">Simpan Aktivitas</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-xl font-semibold mb-4">Daftar Aktivitas</h2>
+        <ul id="aktivitas-list" class="space-y-3">
+          <li class="text-slate-500">Memuat aktivitas...</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="text-center text-sm text-slate-500 py-6">
+    PAW Week 7 &middot; Abdullah Duwiputro &middot; 20240140194
+  </footer>
+
+  <script>
+    const rupiah = (n) => n === 0 ? 'Gratis' : 'Rp' + n.toLocaleString('id-ID');
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function muatStatus() {
+      const badge = document.getElementById('status-badge');
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        badge.textContent = `Server ${data.status.toUpperCase()} · v${data.versi} · ${data.waktuServer}`;
+      } catch {
+        badge.textContent = 'Server tidak dapat dihubungi';
+        badge.classList.replace('bg-indigo-500', 'bg-red-500');
+      }
+    }
+
+    async function muatProduk() {
+      const el = document.getElementById('produk-list');
+      try {
+        const res = await fetch('/api/produk');
+        const data = await res.json();
+        el.innerHTML = data.map((p) => `
+          <div class="bg-white rounded-xl shadow p-5">
+            <span class="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${esc(p.kategori)}</span>
+            <h3 class="mt-3 font-semibold text-lg">${esc(p.nama)}</h3>
+            <p class="text-sm text-slate-600 mt-1">${esc(p.deskripsi)}</p>
+            <p class="mt-3 font-bold text-indigo-600">${rupiah(p.harga)}</p>
+          </div>`).join('');
+      } catch {
+        el.innerHTML = '<p class="text-red-600">Gagal memuat produk.</p>';
+      }
+    }
+
+    async function muatAktivitas() {
+      const el = document.getElementById('aktivitas-list');
+      try {
+        const res = await fetch('/api/aktivitas');
+        const data = await res.json();
+        el.innerHTML = data.length === 0
+          ? '<li class="text-slate-500">Belum ada aktivitas.</li>'
+          : data.map((a) => `
+            <li class="border rounded-lg px-4 py-3">
+              <p class="font-medium">${esc(a.judul)}</p>
+              <p class="text-sm text-slate-500">${esc(a.tanggal)} &middot; ${esc(a.jam)} WIB</p>
+            </li>`).join('');
+      } catch {
+        el.innerHTML = '<li class="text-red-600">Gagal memuat aktivitas.</li>';
+      }
+    }
+
+    document.getElementById('btn-simpan').addEventListener('click', async () => {
+      const pesan = document.getElementById('form-pesan');
+      const body = {
+        judul: document.getElementById('judul').value,
+        tanggal: document.getElementById('tanggal').value,
+        jam: document.getElementById('jam').value
+      };
+      const res = await fetch('/api/aktivitas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        pesan.textContent = err.message;
+        pesan.classList.remove('hidden');
+        return;
+      }
+      pesan.classList.add('hidden');
+      document.getElementById('judul').value = '';
+      muatAktivitas();
+    });
+
+    muatStatus();
+    muatProduk();
+    muatAktivitas();
+  </script>
+</body>
+</html>
