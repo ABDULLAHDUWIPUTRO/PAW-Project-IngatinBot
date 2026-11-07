@@ -22,4 +22,10 @@ function sekarangWIB() {
   };
 }
 
-module.exports = { formatTimestamp, formatTanggal, sekarangWIB };
+// true jika kombinasi tanggal + jam sudah lewat dari waktu sekarang (WIB)
+function sudahLewat(tanggal, jam) {
+  const sekarang = sekarangWIB();
+  return `${tanggal} ${jam}` < `${sekarang.tanggal} ${sekarang.jam}`;
+}
+
+module.exports = { formatTimestamp, formatTanggal, sekarangWIB, sudahLewat };
