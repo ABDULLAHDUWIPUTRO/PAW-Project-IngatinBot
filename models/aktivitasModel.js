@@ -1,17 +1,31 @@
-// Data aktivitas disimpan di memori (array). Hilang saat server restart; database menyusul di minggu berikutnya.
-const aktivitas = [];
-let nextId = 1;
+// Model Aktivitas (tabel "aktivitas"). Seluruh query database ke tabel ini ada di sini.
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-function getAll() {
-  return [...aktivitas].sort((a, b) =>
-    `${a.tanggal} ${a.jam}`.localeCompare(`${b.tanggal} ${b.jam}`)
-  );
+const Aktivitas = sequelize.define('Aktivitas', {
+  judul: { type: DataTypes.STRING(150), allowNull: false },
+  tanggal: { type: DataTypes.DATEONLY, allowNull: false },
+  jam: { type: DataTypes.STRING(5), allowNull: false },
+  selesai: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+}, { tableName: 'aktivitas', timestamps: false });
+
+const getAll = () => Aktivitas.findAll({ order: [['tanggal', 'ASC'], ['jam', 'ASC']] });
+
+const getById = (id) => Aktivitas.findByPk(id);
+
+const create = (data) => Aktivitas.create(data);
+
+async function update(id, data) {
+  const item = await Aktivitas.findByPk(id);
+  if (!item) return null;
+  return item.update(data);
 }
 
-function create({ judul, tanggal, jam }) {
-  const item = { id: nextId++, judul, tanggal, jam, selesai: false };
-  aktivitas.push(item);
-  return item;
+async function remove(id) {
+  const item = await Aktivitas.findByPk(id);
+  if (!item) return false;
+  await item.destroy();
+  return true;
 }
 
-module.exports = { getAll, create };
+module.exports = { Aktivitas, getAll, getById, create, update, remove };
