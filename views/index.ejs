@@ -17,7 +17,7 @@
 
   <main class="max-w-5xl mx-auto px-4 py-8 space-y-10">
 
-    <!-- Produk dari GET /api/produk -->
+    <!-- Produk dari database lewat GET /api/produk -->
     <section>
       <h2 class="text-xl font-semibold mb-4">Paket IngatinBot</h2>
       <div id="produk-list" class="grid gap-4 sm:grid-cols-3">
@@ -25,10 +25,10 @@
       </div>
     </section>
 
-    <!-- Aktivitas dari GET/POST /api/aktivitas -->
+    <!-- CRUD aktivitas lewat /api/aktivitas -->
     <section class="grid gap-6 md:grid-cols-2">
       <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-xl font-semibold mb-4">Tambah Aktivitas</h2>
+        <h2 id="form-judul" class="text-xl font-semibold mb-4">Tambah Aktivitas</h2>
         <div class="space-y-3">
           <div>
             <label class="block text-sm font-medium mb-1" for="judul">Judul</label>
@@ -44,8 +44,11 @@
               <input id="jam" type="time" class="w-full border rounded-lg px-3 py-2">
             </div>
           </div>
-          <p id="form-pesan" class="text-sm text-red-600 hidden"></p>
-          <button id="btn-simpan" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg py-2">Simpan Aktivitas</button>
+          <p id="form-pesan" class="text-sm hidden"></p>
+          <div class="flex gap-2">
+            <button id="btn-simpan" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg py-2">Simpan Aktivitas</button>
+            <button id="btn-batal" class="hidden px-4 border rounded-lg text-slate-600 hover:bg-slate-100">Batal</button>
+          </div>
         </div>
       </div>
 
@@ -59,18 +62,38 @@
   </main>
 
   <footer class="text-center text-sm text-slate-500 py-6">
-    PAW Week 7 &middot; Abdullah Duwiputro &middot; 20240140194
+    PAW Week 8 &middot; Abdullah Duwiputro &middot; 20240140194
   </footer>
 
   <script>
+    const $ = (id) => document.getElementById(id);
     const rupiah = (n) => n === 0 ? 'Gratis' : 'Rp' + n.toLocaleString('id-ID');
     const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+    let dataAktivitas = [];   // salinan data dari database (hasil GET /api/aktivitas)
+    let idEdit = null;        // null = mode tambah, angka = mode ubah
+
+    function tampilPesan(teks, error = false) {
+      const p = $('form-pesan');
+      p.textContent = teks;
+      p.className = 'text-sm ' + (error ? 'text-red-600' : 'text-green-600');
+    }
+
+    async function kirim(method, url, body) {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Terjadi kesalahan');
+      return data;
+    }
+
     async function muatStatus() {
-      const badge = document.getElementById('status-badge');
+      const badge = $('status-badge');
       try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
+        const data = await kirim('GET', '/api/status');
         badge.textContent = `Server ${data.status.toUpperCase()} · v${data.versi} · ${data.waktuServer}`;
       } catch {
         badge.textContent = 'Server tidak dapat dihubungi';
@@ -79,10 +102,9 @@
     }
 
     async function muatProduk() {
-      const el = document.getElementById('produk-list');
+      const el = $('produk-list');
       try {
-        const res = await fetch('/api/produk');
-        const data = await res.json();
+        const data = await kirim('GET', '/api/produk');
         el.innerHTML = data.map((p) => `
           <div class="bg-white rounded-xl shadow p-5">
             <span class="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${esc(p.kategori)}</span>
@@ -96,47 +118,108 @@
     }
 
     async function muatAktivitas() {
-      const el = document.getElementById('aktivitas-list');
+      const el = $('aktivitas-list');
       try {
-        const res = await fetch('/api/aktivitas');
-        const data = await res.json();
-        el.innerHTML = data.length === 0
+        dataAktivitas = await kirim('GET', '/api/aktivitas');
+        el.innerHTML = dataAktivitas.length === 0
           ? '<li class="text-slate-500">Belum ada aktivitas.</li>'
-          : data.map((a) => `
-            <li class="border rounded-lg px-4 py-3">
-              <p class="font-medium">${esc(a.judul)}</p>
-              <p class="text-sm text-slate-500">${esc(a.tanggal)} &middot; ${esc(a.jam)} WIB</p>
+          : dataAktivitas.map((a) => `
+            <li class="border rounded-lg px-4 py-3 flex items-start gap-3">
+              <input type="checkbox" class="cek-selesai mt-1" data-id="${a.id}" ${a.selesai ? 'checked' : ''}>
+              <div class="flex-1">
+                <p class="font-medium ${a.selesai ? 'line-through text-slate-400' : ''}">${esc(a.judul)}</p>
+                <p class="text-sm text-slate-500">${esc(a.tanggal)} &middot; ${esc(a.jam)} WIB</p>
+              </div>
+              <button class="btn-edit text-sm text-indigo-600 hover:underline" data-id="${a.id}">Edit</button>
+              <button class="btn-hapus text-sm text-red-600 hover:underline" data-id="${a.id}">Hapus</button>
             </li>`).join('');
       } catch {
         el.innerHTML = '<li class="text-red-600">Gagal memuat aktivitas.</li>';
       }
     }
 
-    document.getElementById('btn-simpan').addEventListener('click', async () => {
-      const pesan = document.getElementById('form-pesan');
-      const body = {
-        judul: document.getElementById('judul').value,
-        tanggal: document.getElementById('tanggal').value,
-        jam: document.getElementById('jam').value
-      };
-      const res = await fetch('/api/aktivitas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        pesan.textContent = err.message;
-        pesan.classList.remove('hidden');
-        return;
+    function resetForm() {
+      idEdit = null;
+      $('judul').value = '';
+      $('tanggal').value = '';
+      $('jam').value = '';
+      $('form-judul').textContent = 'Tambah Aktivitas';
+      $('btn-simpan').textContent = 'Simpan Aktivitas';
+      $('btn-batal').classList.add('hidden');
+    }
+
+    // CREATE dan UPDATE
+    $('btn-simpan').addEventListener('click', async () => {
+      const body = { judul: $('judul').value, tanggal: $('tanggal').value, jam: $('jam').value };
+      try {
+        if (idEdit) {
+          const lama = dataAktivitas.find((a) => a.id === idEdit);
+          await kirim('PUT', `/api/aktivitas/${idEdit}`, { ...body, selesai: lama ? lama.selesai : false });
+          tampilPesan('Aktivitas berhasil diperbarui');
+        } else {
+          await kirim('POST', '/api/aktivitas', body);
+          tampilPesan('Aktivitas berhasil ditambahkan');
+        }
+        resetForm();
+        muatAktivitas();
+      } catch (err) {
+        tampilPesan(err.message, true);
       }
-      pesan.classList.add('hidden');
-      document.getElementById('judul').value = '';
+    });
+
+    $('btn-batal').addEventListener('click', () => {
+      resetForm();
+      $('form-pesan').className = 'hidden';
+    });
+
+    // Edit dan Hapus (event delegation pada daftar)
+    $('aktivitas-list').addEventListener('click', async (e) => {
+      const id = Number(e.target.dataset.id);
+      if (!id) return;
+
+      if (e.target.classList.contains('btn-edit')) {
+        const a = dataAktivitas.find((x) => x.id === id);
+        idEdit = id;
+        $('judul').value = a.judul;
+        $('tanggal').value = a.tanggal;
+        $('jam').value = a.jam;
+        $('form-judul').textContent = 'Ubah Aktivitas';
+        $('btn-simpan').textContent = 'Simpan Perubahan';
+        $('btn-batal').classList.remove('hidden');
+        $('form-pesan').className = 'hidden';
+        $('judul').focus();
+      }
+
+      if (e.target.classList.contains('btn-hapus')) {
+        if (!confirm('Hapus aktivitas ini?')) return;
+        try {
+          await kirim('DELETE', `/api/aktivitas/${id}`);
+          if (idEdit === id) resetForm();
+          tampilPesan('Aktivitas berhasil dihapus');
+          muatAktivitas();
+        } catch (err) {
+          tampilPesan(err.message, true);
+        }
+      }
+    });
+
+    // Tandai selesai (UPDATE)
+    $('aktivitas-list').addEventListener('change', async (e) => {
+      if (!e.target.classList.contains('cek-selesai')) return;
+      const a = dataAktivitas.find((x) => x.id === Number(e.target.dataset.id));
+      try {
+        await kirim('PUT', `/api/aktivitas/${a.id}`, {
+          judul: a.judul, tanggal: a.tanggal, jam: a.jam, selesai: e.target.checked
+        });
+      } catch (err) {
+        tampilPesan(err.message, true);
+      }
       muatAktivitas();
     });
 
-        // Tanggal sebelum hari ini tidak bisa dipilih
-    document.getElementById('tanggal').min = new Date().toLocaleDateString('en-CA');
+    // Tanggal sebelum hari ini tidak bisa dipilih
+    $('tanggal').min = new Date().toLocaleDateString('en-CA');
+
     muatStatus();
     muatProduk();
     muatAktivitas();
