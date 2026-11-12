@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/ABDULLAHDUWIPUTRO/PAW-Project-IngatinBot#readme",
   "dependencies": {
+    "@google/genai": "^3.2.0",
     "dotenv": "^18.0.9",
     "ejs": "^7.0.2",
     "express": "^5.3.0",
