@@ -59,10 +59,33 @@
         </ul>
       </div>
     </section>
+
+    <!-- AI Assistant (Gemini) lewat POST /api/chat -->
+    <section class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-xl font-semibold">Tanya AI Assistant</h2>
+      <p class="text-sm text-slate-500 mb-4">Tanyakan seputar paket layanan dan aktivitasmu di IngatinBot.</p>
+
+      <div id="chat-box" class="h-72 overflow-y-auto border rounded-lg p-3 space-y-3 bg-slate-50">
+        <div class="max-w-[85%] bg-white border rounded-lg px-3 py-2 text-sm">
+          Halo! Saya IngatinBot Assistant. Ada yang ingin kamu ketahui tentang aplikasi ini?
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button class="chip text-xs border border-indigo-200 text-indigo-700 rounded-full px-3 py-1 hover:bg-indigo-50">Paket apa saja yang tersedia?</button>
+        <button class="chip text-xs border border-indigo-200 text-indigo-700 rounded-full px-3 py-1 hover:bg-indigo-50">Aktivitas apa yang akan datang?</button>
+        <button class="chip text-xs border border-indigo-200 text-indigo-700 rounded-full px-3 py-1 hover:bg-indigo-50">Bagaimana cara menambah aktivitas?</button>
+      </div>
+
+      <div class="flex gap-2 mt-3">
+        <input id="chat-input" type="text" maxlength="500" placeholder="Tulis pertanyaanmu..." class="flex-1 min-w-0 border rounded-lg px-3 py-2">
+        <button id="chat-kirim" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg px-4 py-2">Kirim</button>
+      </div>
+    </section>
   </main>
 
   <footer class="text-center text-sm text-slate-500 py-6">
-    PAW Week 8 &middot; Abdullah Duwiputro &middot; 20240140194
+    PAW Week 9 &middot; Abdullah Duwiputro &middot; 20240140194
   </footer>
 
   <script>
@@ -219,6 +242,68 @@
 
     // Tanggal sebelum hari ini tidak bisa dipilih
     $('tanggal').min = new Date().toLocaleDateString('en-CA');
+
+
+    // ===== AI Assistant =====
+    const chatBox = $('chat-box');
+    const chatInput = $('chat-input');
+    const chatKirim = $('chat-kirim');
+
+    function tambahBubble(teks, tipe) {
+      const d = document.createElement('div');
+      const gaya = {
+        user: 'ml-auto bg-indigo-600 text-white',
+        ai: 'bg-white border',
+        error: 'bg-red-50 border border-red-200 text-red-700',
+        loading: 'bg-white border text-slate-500 animate-pulse'
+      };
+      d.className = `max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${gaya[tipe]}`;
+      d.textContent = teks;           // textContent: aman dari injeksi HTML
+      chatBox.appendChild(d);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return d;
+    }
+
+    async function kirimChat(teks) {
+      const pesan = teks.trim();
+      if (!pesan) return;
+
+      tambahBubble(pesan, 'user');
+      chatInput.value = '';
+      chatKirim.disabled = true;
+      chatInput.disabled = true;
+      const loading = tambahBubble('AI sedang memproses pertanyaan...', 'loading');
+
+      const ctrl = new AbortController();
+      const batas = setTimeout(() => ctrl.abort(), 60000);   // batas waktu 60 detik
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: pesan }),
+          signal: ctrl.signal
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Terjadi kesalahan');
+        loading.remove();
+        tambahBubble(data.data.reply, 'ai');
+      } catch (err) {
+        loading.remove();
+        const teksError = err.name === 'AbortError'
+          ? 'Permintaan terlalu lama. Coba lagi.'
+          : (err instanceof TypeError ? 'Tidak dapat menghubungi server.' : err.message);
+        tambahBubble(teksError, 'error');
+      } finally {
+        clearTimeout(batas);
+        chatKirim.disabled = false;
+        chatInput.disabled = false;
+        chatInput.focus();
+      }
+    }
+
+    chatKirim.addEventListener('click', () => kirimChat(chatInput.value));
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') kirimChat(chatInput.value); });
+    document.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => kirimChat(b.textContent)));
 
     muatStatus();
     muatProduk();
