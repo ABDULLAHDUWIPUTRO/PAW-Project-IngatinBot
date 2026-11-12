@@ -2,6 +2,7 @@ const express = require('express');
 const { getStatus } = require('../controllers/statusController');
 const produk = require('../controllers/produkController');
 const aktivitas = require('../controllers/aktivitasController');
+const chatRoutes = require('./chat.routes');
 
 const router = express.Router();
 
@@ -21,4 +22,6 @@ router.post('/aktivitas', aktivitas.tambahAktivitas);
 router.put('/aktivitas/:id', aktivitas.ubahAktivitas);
 router.delete('/aktivitas/:id', aktivitas.hapusAktivitas);
 
+// AI Assistant (Gemini)
+router.use('/chat', chatRoutes);
 module.exports = router;
