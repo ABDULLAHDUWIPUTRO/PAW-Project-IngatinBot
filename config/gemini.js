@@ -4,6 +4,9 @@ require('./config'); // memastikan file .env sudah dimuat
 module.exports = {
   apiKey: process.env.GEMINI_API_KEY || '',
   model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  fallbackModel: process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash', // dipakai jika model utama gagal
+  maxRetry: 1,               // percobaan ulang per model saat server Gemini sibuk (5xx)
+  retryDelayMs: Number(process.env.GEMINI_RETRY_DELAY_MS) || 1500,
   temperature: 0.3,          // rendah supaya jawaban konsisten dan tidak mengarang
   maxOutputTokens: 600,
   maxMessageLength: 500,     // batas panjang pesan pengguna

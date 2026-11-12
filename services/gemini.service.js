@@ -57,26 +57,49 @@ function petakanError(err) {
   return buatError(502, 'Layanan AI sedang bermasalah. Coba lagi nanti.', err.message);
 }
 
+const tunggu = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Error sementara dari sisi server Gemini (mis. 503 "high demand") layak dicoba ulang
+const bisaDiulang = (err) => [500, 503, 504].includes(Number(err.status || err.code));
+
 async function tanyaGemini(pesan) {
   const ai = getClient();
   const konteks = await buatContext();
+  const systemInstruction = `${gemini.systemInstruction}\n\n${konteks}`;
 
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: gemini.model,
-      contents: pesan,
-      config: {
-        systemInstruction: `${gemini.systemInstruction}\n\n${konteks}`,
-        temperature: gemini.temperature,
-        maxOutputTokens: gemini.maxOutputTokens
+  // Model utama dulu; jika tetap gagal, coba model cadangan
+  const daftarModel = [gemini.model];
+  if (gemini.fallbackModel && gemini.fallbackModel !== gemini.model) daftarModel.push(gemini.fallbackModel);
+
+  let response = null;
+  let errTerakhir = null;
+
+  for (const model of daftarModel) {
+    for (let percobaan = 0; percobaan <= gemini.maxRetry; percobaan++) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: pesan,
+          config: {
+            systemInstruction,
+            temperature: gemini.temperature,
+            maxOutputTokens: gemini.maxOutputTokens
+          }
+        });
+        break;
+      } catch (err) {
+        errTerakhir = err;
+        console.error(`[Gemini] ${model} percobaan ${percobaan + 1} gagal: ${err.message}`);
+        if (!bisaDiulang(err)) break;                       // error permanen: langsung ke model berikutnya
+        if (percobaan < gemini.maxRetry) await tunggu(gemini.retryDelayMs * (percobaan + 1));
       }
-    });
-  } catch (err) {
-    throw petakanError(err);
+    }
+    if (response) break;
   }
 
-  const reply = (response && response.text ? response.text : '').trim();
+  if (!response) throw petakanError(errTerakhir);
+
+  const reply = (response.text ? response.text : '').trim();
   if (!reply) {
     throw buatError(502, 'AI tidak memberikan jawaban. Coba ajukan pertanyaan dengan kalimat lain.', 'Response Gemini kosong');
   }
